@@ -110,3 +110,83 @@ def parse_and_modify_block(file_path, counting_instruction, slider_ctx, system_p
         f.write(updated_file_contents)
         
     return f"✍️ Target chunk '{counting_instruction}' has been completely refactored.", updated_file_contents
+    # ==============================================================================
+# MODEL MANAGEMENT & GRADIO INTERFACE DISPATCH
+# ==============================================================================
+print("🤖 Booting optimized 4-bit Llama 3 8B Instruct model...")
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name="unsloth/llama-3-8b-Instruct-bnb-4bit", max_seq_length=4096, dtype=None, load_in_4bit=True, device_map="cuda"
+)
+FastLanguageModel.for_inference(model)
+
+SYSTEM_PROMPT = """You are Calli Slidell, a world-class fiction editor and creative partner helping rewrite an epic fantasy novel manuscript titled "Archipelago: Shattered Scales".
+
+LOCKED REPTILIAN BIOLOGY & CONTINUITY CONSTRAINTS:
+1. THE ISLANDEES (Sliver, Speck, Twitch, Plume, Clearsnap): Quadruped LIZARDS/SKINKS. Four active claws, move by scampering/skittering, use snouts to nudge objects, adjust scales. Completely VENOMLESS. High metabolism protects against morning cold-slows.
+2. THE MAINLAND MERCS (Slipnotch, Ash, Smolder): Literal SNAKES/VIPERS. Completely LEGLESS. Move strictly by slithering, winding, or thrashing. Coil up tightly into strike positions. Carry deadly VENOM and prominent fangs.
+3. ECONOMY & TAX LOOP: Coalition work pays 20 shells. Independent lizards (Sliver, Speck) face a +30 shell penalty, paying 200 shells per five days tax. Private commerce inside Main Camp walls is strictly forbidden.
+4. METANARRATIVE: Compiled by Clearsnap, who occasionally leaves meta-commentary annotations.
+
+Transform the provided text snippet cleanly. Maintain active pacing (3.5/5). Return ONLY the rewritten narrative text."""
+
+def process_automated_editorial_turn(file_name, block_instruction, atmosphere, mental, dialogue, margin_notes, prg=gr.Progress()):
+    prg(0.1, desc="🔍 Locating manuscript file target index...")
+    target_path = initialize_workspace(file_name)
+    
+    prg(0.3, desc="⚡ Reading file buffers and running structural parser...")
+    slider_context = f"[Mode=Automated Turn, Atmosphere Sensory Detail={atmosphere}/5, Mental Depth={mental}/5, Dialogue Padding={dialogue}/5, Global Pacing=3.5/5]"
+    
+    log_output, updated_text = parse_and_modify_block(
+        target_path, block_instruction, slider_context, SYSTEM_PROMPT, model, tokenizer, margin_notes, prg
+    )
+    
+    prg(1.0, desc="🎨 Rerendering workspace dashboard views...")
+    return log_output, updated_text
+
+def read_document_contents(file_name):
+    target_path = os.path.join(DRIVE_BASE, file_name)
+    if os.path.exists(target_path):
+        with open(target_path, "r", encoding="utf-8") as f: return f.read()
+    return "Workspace session file empty."
+
+def force_flush_vram():
+    gc.collect()
+    torch.cuda.empty_cache()
+    torch.cuda.ipc_collect()
+    return "🧹 Memory Refresh Status: Complete. VRAM cells successfully flushed!"
+
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
+    gr.Markdown("# 🦎 BHaG Novel Bot Development Studio — Calli Slidell Profile")
+    gr.Markdown("*Autonomous file-indexing architectural build designed for hands-free ChromeOS operation.*")
+    
+    with gr.Row():
+        with gr.Column(scale=1):
+            gr.Markdown("### 🎛️ Automation Control Desk")
+            target_file_input = gr.Textbox(value="manuscript.md", label="Active Workspace Target File Name")
+            block_instruction_box = gr.Textbox(value="the second cyan block", label="🎯 Target Block Selector Instructions")
+            
+            slider_atmos = gr.Slider(1, 5, step=1, value=3, label="Atmosphere (Sensory Details)")
+            slider_mental = gr.Slider(1, 5, step=1, value=3, label="Mental (Emotional & Logic Weight)")
+            slider_dialogue = gr.Slider(1, 5, step=1, value=3, label="Dialogue (Padded Chatter)")
+            
+            margin_notes_box = gr.Textbox(lines=3, label="📝 Calli's Margin Notes", placeholder="Type instructions here...")
+            submit_btn = gr.Button("🚀 Run Autonomous Document Edit", variant="primary")
+            flush_btn = gr.Button("🧹 Refresh Memory Cells (Clear VRAM Cache)", variant="stop")
+            
+        with gr.Column(scale=1):
+            gr.Markdown("### 📤 Execution & Activity Return Logs")
+            log_monitor_box = gr.Textbox(lines=4, label="System Operations Feedback Pane", interactive=False)
+            gr.Markdown("### 📜 Live Manuscript Viewport (`manuscript.md`)")
+            file_viewport = gr.Markdown(value=read_document_contents("manuscript.md"))
+            refresh_btn = gr.Button("🔄 Force Reload Viewport File State")
+
+    submit_btn.click(
+        fn=process_automated_editorial_turn, 
+        inputs=[target_file_input, block_instruction_box, slider_atmos, slider_mental, slider_dialogue, margin_notes_box], 
+        outputs=[log_monitor_box, file_viewport]
+    )
+    refresh_btn.click(fn=read_document_contents, inputs=[target_file_input], outputs=[file_viewport])
+    flush_btn.click(fn=force_flush_vram, inputs=[], outputs=[log_monitor_box])
+
+demo.launch(share=True, debug=True)
+
