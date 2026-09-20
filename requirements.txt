@@ -1,0 +1,8 @@
+--extra-index-url https://pytorch.org
+unsloth[colab-new] @ git+https://github.com
+gradio>=4.0.0
+peft
+accelerate
+trl
+xformers
+bitsandbytes
